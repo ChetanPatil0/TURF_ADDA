@@ -1,9 +1,7 @@
-
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs-extra';
 
-// Reusable path formatter – type + userId + date + random + ext
 const formatFileName = (req, file, type) => {
   const userId = req.user?.id || 'unknown';
   const date = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '');
@@ -12,28 +10,37 @@ const formatFileName = (req, file, type) => {
   return `${type}_${userId}_${date}_${random}${ext}`;
 };
 
-// Reusable storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     let folder = 'uploads';
-    if (file.fieldname === 'profileImage') folder = 'uploads/UserProfiles';
-    else if (file.fieldname === 'turfImages') folder = 'uploads/TurfImages';
-    else if (file.fieldname === 'turfVideos') folder = 'uploads/TurfVideos';
+
+    // User files – completely separate
+    if (file.fieldname === 'profileImage') {
+      folder = 'uploads/users/profiles';
+    }
+
+    // Turf files – completely separate folder structure
+    if (file.fieldname === 'images' || file.fieldname === 'coverImage' || file.fieldname === 'turfImages') {
+      folder = 'uploads/turfs/images';
+    }
+
+    if (file.fieldname === 'videos' || file.fieldname === 'turfVideos') {
+      folder = 'uploads/turfs/videos';
+    }
+
     cb(null, folder);
   },
   filename: (req, file, cb) => {
-    const type = file.fieldname; // profileImage, turfImages, turfVideos, etc.
+    const type = file.fieldname;
     const name = formatFileName(req, file, type);
     cb(null, name);
   },
 });
 
-// File type filters with separate messages
 const imageFilter = (req, file, cb) => {
   const allowed = /jpeg|jpg|png/;
   const extname = allowed.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowed.test(file.mimetype);
-
   if (mimetype && extname) {
     cb(null, true);
   } else {
@@ -42,24 +49,20 @@ const imageFilter = (req, file, cb) => {
 };
 
 const videoFilter = (req, file, cb) => {
-  const allowed = /mp4|avi/;
+  const allowed = /mp4|mov|avi/;
   const extname = allowed.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowed.test(file.mimetype);
-
   if (mimetype && extname) {
     cb(null, true);
   } else {
-    cb(new Error('Only MP4 or AVI videos are allowed'), false);
+    cb(new Error('Only MP4, MOV or AVI videos are allowed'), false);
   }
 };
 
-// Reusable upload function – accepts MB limits (defaults if not provided)
 export const uploadFile = (fieldName, options = {}) => {
-  // Defaults in MB
   const defaultImageMaxMB = 5;
-  const defaultVideoMaxMB = 50;
+  const defaultVideoMaxMB = 100;
 
-  // Convert MB to bytes
   const imageMaxSizeBytes = (options.imageMaxMB || defaultImageMaxMB) * 1024 * 1024;
   const videoMaxSizeBytes = (options.videoMaxMB || defaultVideoMaxMB) * 1024 * 1024;
 
@@ -67,45 +70,68 @@ export const uploadFile = (fieldName, options = {}) => {
     storage,
     limits: { fileSize: Math.max(imageMaxSizeBytes, videoMaxSizeBytes) },
     fileFilter: (req, file, cb) => {
-      if (file.fieldname === 'profileImage' || file.fieldname === 'turfImages') {
+      if (['profileImage', 'images', 'coverImage', 'turfImages'].includes(file.fieldname)) {
         imageFilter(req, file, cb);
-      } else if (file.fieldname === 'turfVideos') {
+      } else if (['videos', 'turfVideos'].includes(file.fieldname)) {
         videoFilter(req, file, cb);
       } else {
         cb(new Error('Invalid field name'), false);
       }
     },
-  }).single(fieldName); // Change to .array() or .fields() for multiple files later
+  }).single(fieldName);
 };
 
-// Post-upload handler – delete on failure (transaction-like)
+export const uploadTurfMedia = multer({
+  storage,
+  limits: { fileSize: 150 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (['images', 'coverImage', 'turfImages'].includes(file.fieldname)) {
+      imageFilter(req, file, cb);
+    } else if (['videos', 'turfVideos'].includes(file.fieldname)) {
+      videoFilter(req, file, cb);
+    } else {
+      cb(new Error('Invalid field name'), false);
+    }
+  },
+}).fields([
+  { name: 'images', maxCount: 10 },
+  { name: 'videos', maxCount: 5 },
+  { name: 'coverImage', maxCount: 1 },
+  { name: 'turfImages', maxCount: 10 },
+  { name: 'turfVideos', maxCount: 5 },
+]);
+
 export const processUpload = async (req, res, next) => {
   try {
-    // Success → continue to controller
     next();
   } catch (error) {
-    // Delete uploaded file if any failure
-    if (req.file) {
-      await fs.unlink(req.file.path).catch(() => {});
+    const filesToDelete = [];
+
+    if (req.file?.path) {
+      filesToDelete.push(req.file.path);
     }
 
-    // Clear & specific messages
+    if (req.files) {
+      Object.values(req.files).flat().forEach(file => {
+        if (file?.path) filesToDelete.push(file.path);
+      });
+    }
+
+    await Promise.all(
+      filesToDelete.map(filePath => fs.unlink(filePath).catch(() => {}))
+    );
+
     if (error.message.includes('Only JPG') || error.message.includes('Only MP4')) {
       return res.status(400).json({ success: false, message: error.message });
     }
 
     if (error.code === 'LIMIT_FILE_SIZE') {
-      let limitMsg = 'File size exceeded. ';
-      if (req.file?.fieldname.includes('Image')) {
-        limitMsg += `Maximum allowed size for images is ${defaultImageMaxMB} MB.`;
-      } else if (req.file?.fieldname.includes('Video')) {
-        limitMsg += `Maximum allowed size for videos is ${defaultVideoMaxMB} MB.`;
-      } else {
-        limitMsg += 'Please check file size.';
-      }
-      return res.status(400).json({ success: false, message: limitMsg });
+      return res.status(400).json({
+        success: false,
+        message: 'File too large. Images/cover: max 5MB, Videos: max 100MB',
+      });
     }
 
-    res.status(500).json({ success: false, message: 'Upload failed', error: error.message });
+    return res.status(500).json({ success: false, message: 'Upload failed' });
   }
 };

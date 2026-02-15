@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import authRoutes from './features/auth/auth.routes.js'; 
+import turfRoutes from './features/turf/turf.route.js';
 const app = express();
 
 
@@ -13,6 +14,7 @@ app.use(express.json());
 app.use(morgan('dev'));          
 
 app.use('/api/auth', authRoutes);  
+app.use('/api/turf', turfRoutes); 
 
 // Test check route
 app.get('/', (req, res) => {

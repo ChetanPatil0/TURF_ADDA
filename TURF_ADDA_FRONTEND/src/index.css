@@ -1,7 +1,32 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
 
-body {
-  margin: 0;
-  font-family: 'Roboto', sans-serif;
-  background-color: #FAFAFA;
+@import "tailwindcss";
+
+:root {
+  /* Primary */
+  --color-primary: #2BB673;
+  --color-primary-light: #E0F5EA;
+  --color-primary-dark: #141A21;
+
+  /* Secondary */
+  --color-secondary: #F59E0B;
+
+  /* Background */
+  --color-bg-default: #FAFAFA;
+  --color-bg-paper: #FFFFFF;
+
+  /* Text */
+  --color-text-primary: #141A21;
+  --color-text-secondary: #6B7280;
+
+  /* Error */
+  --color-error: #EF4444;
+
+  /* Divider */
+  --color-divider: #E5E7EB;
+
+  /* Action */
+  --color-selected: #F59E0B;
+  --color-disabled: #D4D4D4;
 }
+

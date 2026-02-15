@@ -61,7 +61,7 @@ const AppRoutes = () => {
         <Route path="/owner" element={<DashboardLayout />}>
           <Route index element={<OwnerDashboard />} />
           <Route path="turfs" element={<MyTurfs />} />
-          <Route path="turfs/add" element={<AddTurf />} />
+          <Route path="add-turf" element={<AddTurf />} />
           <Route path="bookings" element={<OwnerBookings />} />
           <Route path="revenue" element={<Revenue />} />
           <Route path="profile" element={<Profile />} />
