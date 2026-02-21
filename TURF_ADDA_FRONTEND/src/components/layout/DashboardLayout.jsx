@@ -10,7 +10,7 @@ export default function DashboardLayout() {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const { user } = useAuthStore();
-  const role = user?.role || 'player';
+  const role = user?.role?.toLowerCase() || 'player';
 
   const toggleMobile = () => setMobileOpen((prev) => !prev);
   const closeMobile = () => setMobileOpen(false);
@@ -25,24 +25,19 @@ export default function DashboardLayout() {
       />
 
       <div className="flex pt-16 h-[calc(100vh-4rem)]">
-        {/* Desktop sidebar */}
         <Sidebar
           variant="desktop"
           isCollapsed={isCollapsed}
           toggleCollapse={toggleCollapse}
         />
 
-        {/* Main content – no left margin on mobile/tablet */}
-        <main
-          className={`
-            flex-1 overflow-y-auto bg-[var(--color-bg-default)] transition-all duration-300 `} >
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+        <main className="flex-1 overflow-y-auto bg-[var(--color-bg-default)] transition-all duration-300">
+          <div className="container mx-auto ">
             <Outlet />
           </div>
         </main>
       </div>
 
-      {/* Mobile sidebar drawer */}
       {mobileOpen && (
         <Sidebar
           variant="mobile"

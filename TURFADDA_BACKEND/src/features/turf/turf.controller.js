@@ -1,15 +1,18 @@
 import Turf from '../../features/turf/turf.model.js';
-// import User from '../../features/auth/auth.model.js';
+import User from '../../features/auth/auth.model.js';
 
 import { sendError, sendSuccess } from '../../utils/errorHandler.js';
-
 export const createTurf = async (req, res) => {
   try {
     const userId = req.user.id;
     const role = req.user.role;
 
     if (!['owner', 'admin', 'superadmin'].includes(role)) {
-      return sendError(res, 403, 'Only turf owners or admins can create turfs');
+      return sendError(
+        res,
+        403,
+        'You do not have permission to create a turf. Only owners or administrators can perform this action.'
+      );
     }
 
     const {
@@ -23,37 +26,98 @@ export const createTurf = async (req, res) => {
       surfaceType,
       size,
       amenities,
-      location,
       platformCommissionRate,
+      address,
+      landmark,
+      area,
+      city,
+      state,
+      pincode,
+      latitude,
+      longitude,
     } = req.body;
 
-    if (!name || !openingTime || !closingTime || !pricePerSlot || !sports?.length || !location?.address || !location?.city) {
-      return sendError(res, 400, 'Required fields missing (name, times, price, sports, location address & city)');
+    let parsedSports = sports;
+    let parsedAmenities = amenities;
+
+    if (typeof sports === 'string') {
+      try {
+        parsedSports = JSON.parse(sports);
+      } catch {
+        parsedSports = [];
+      }
+    }
+
+    if (typeof amenities === 'string') {
+      try {
+        parsedAmenities = JSON.parse(amenities);
+      } catch {
+        parsedAmenities = [];
+      }
+    }
+
+    const errors = [];
+
+    if (!name?.trim()) errors.push('Please enter the turf name.');
+    if (!openingTime) errors.push('Please select the opening time.');
+    if (!closingTime) errors.push('Please select the closing time.');
+    if (!pricePerSlot) errors.push('Please enter the price per slot.');
+    if (!parsedSports || !Array.isArray(parsedSports) || parsedSports.length === 0) {
+      errors.push('Please select at least one sport.');
+    }
+    if (!address?.trim()) errors.push('Please enter the turf address.');
+    if (!city?.trim()) errors.push('Please enter the city.');
+
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (openingTime && !timeRegex.test(openingTime)) {
+      errors.push('Opening time must be in valid HH:MM format (e.g., 06:00).');
+    }
+    if (closingTime && !timeRegex.test(closingTime)) {
+      errors.push('Closing time must be in valid HH:MM format (e.g., 22:00).');
+    }
+
+    if (pricePerSlot && Number(pricePerSlot) < 100) {
+      errors.push('Price per slot must be at least ₹100.');
+    }
+
+    if (
+      platformCommissionRate &&
+      (Number(platformCommissionRate) < 0 || Number(platformCommissionRate) > 0.4)
+    ) {
+      errors.push('Platform commission rate must be between 0% and 40%.');
+    }
+
+    if (errors.length > 0) {
+      return sendError(res, 400, errors.join(' '));
     }
 
     const turfData = {
-      name,
+      name: name.trim(),
       owner: userId,
       description: description || '',
       openingTime,
       closingTime,
       slotDurationMinutes: Number(slotDurationMinutes) || 60,
       pricePerSlot: Number(pricePerSlot),
-      sports,
+      sports: parsedSports,
       surfaceType: surfaceType || 'artificial_turf',
       size: size || '5-a-side',
-      amenities: amenities || [],
+      amenities: parsedAmenities || [],
       location: {
-        address: location.address,
-        landmark: location.landmark || '',
-        area: location.area || '',
-        city: location.city,
-        state: location.state || '',
-        pincode: location.pincode || '',
-        latitude: location.latitude ? Number(location.latitude) : undefined,
-        longitude: location.longitude ? Number(location.longitude) : undefined,
+        address: address.trim(),
+        landmark: landmark || '',
+        area: area || '',
+        city: city.trim(),
+        state: state || '',
+        pincode: pincode || '',
+        latitude: latitude ? Number(latitude) : undefined,
+        longitude: longitude ? Number(longitude) : undefined,
       },
       platformCommissionRate: platformCommissionRate ? Number(platformCommissionRate) : 0.15,
+
+      // NEW: Pending until verified
+      status: 'pending',
+      isActive: false,
     };
 
     if (req.files?.images?.length) {
@@ -71,34 +135,76 @@ export const createTurf = async (req, res) => {
     const turf = new Turf(turfData);
     await turf.save();
 
-    return sendSuccess(res, {
-      id: turf.id,
-      name: turf.name,
-      slug: turf.slug,
-      isVerified: turf.isVerified,
-      owner: turf.owner,
-    }, 'Turf created successfully', 201);
+    return sendSuccess(
+      res,
+      {
+        id: turf.id,
+        name: turf.name,
+        slug: turf.slug,
+        status: turf.status,
+        isActive: turf.isActive,
+        message: 'Your turf has been submitted successfully. It is now pending verification by our admin team. You will be notified once approved.',
+      },
+      'Turf submitted for review',
+      201
+    );
 
   } catch (error) {
     console.error('Create turf error:', error);
-    return sendError(res, 500, 'Failed to create turf');
+    return sendError(
+      res,
+      500,
+      'Something went wrong while submitting your turf. Please try again later.'
+    );
   }
 };
+
 
 export const getMyTurfs = async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log('user id  : ',userId)
 
-    const turfs = await Turf.find({ owner: userId })
-      .select('id name slug isVerified isActive pricePerSlot sports location.city location.area images coverImage videos createdAt')
-      .sort({ createdAt: -1 });
+    const turfs = await Turf.find({
+      $or: [
+        { owner: userId },
+        { staff: userId }
+      ]
+    })
+      .select(`
+        id 
+        name 
+        slug 
+        owner
+        staff
+        isVerified 
+        isActive 
+        status 
+        pricePerSlot 
+        sports 
+        location.city 
+        location.area 
+        images 
+        coverImage 
+        videos 
+        createdAt
+      `)
+      .sort({ createdAt: -1 })
+      .lean(); // better performance
 
-    return sendSuccess(res, { turfs });
+    const formattedTurfs = turfs.map(turf => ({
+      ...turf,
+      role: turf.owner === userId ? 'owner' : 'staff'
+    }));
+
+    return sendSuccess(res, { turfs: formattedTurfs });
+
   } catch (error) {
     console.error('Get my turfs error:', error);
     return sendError(res, 500, 'Server error');
   }
 };
+
 
 export const getTurf = async (req, res) => {
   try {
@@ -106,20 +212,106 @@ export const getTurf = async (req, res) => {
 
     const turf = await Turf.findOne({
       $or: [{ id: identifier }, { slug: identifier }]
-    })
-      .select('-__v')
-      .populate('owner', 'firstName lastName mobile email id');
+    }).lean();
 
     if (!turf) {
       return sendError(res, 404, 'Turf not found');
     }
 
-    return sendSuccess(res, { turf });
+    let ownerData = null;
+
+    if (turf.owner) {
+      const owner = await User.findOne({ id: turf.owner })
+        .select('id firstName lastName mobile email profileImage gender city state country status createdAt')
+        .lean();
+
+      if (owner) {
+        ownerData = {
+          id: owner.id,
+          firstName: owner.firstName || '',
+          lastName: owner.lastName || '',
+          fullName: `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || null,
+          mobile: owner.mobile ?? null,
+          email: owner.email ?? null,
+          profileImage: owner.profileImage ?? null,
+          gender: owner.gender ?? null,
+          city: owner.city ?? null,
+          state: owner.state ?? null,
+          country: owner.country ?? null,
+          status: owner.status ?? null,
+          createdAt: owner.createdAt ?? null
+        };
+      }
+    }
+
+    const formattedTurf = {
+      ...turf,
+      owner: ownerData
+    };
+
+    return sendSuccess(res, { turf: formattedTurf });
+
   } catch (error) {
     console.error('Get turf error:', error);
     return sendError(res, 500, 'Server error');
   }
 };
+
+
+
+
+export const getAllPendingVerificationTurfs = async (req, res) => {
+  try {
+    const pendingTurfs = await Turf.find({ status: 'pending' })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!pendingTurfs.length) {
+      return sendSuccess(res, { pendingTurfs: [] });
+    }
+
+    const ownerIds = [
+      ...new Set(pendingTurfs.map(t => t.owner).filter(Boolean))
+    ];
+
+    const owners = await User.find({ id: { $in: ownerIds } })
+      .select(
+        'id firstName lastName mobile email profileImage gender city state country status createdAt'
+      )
+      .lean();
+
+    const ownerMap = owners.reduce((map, owner) => {
+      map[owner.id] = {
+        id: owner.id,
+        firstName: owner.firstName || '',
+        lastName: owner.lastName || '',
+        fullName:
+          `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || null,
+        mobile: owner.mobile ?? null,
+        email: owner.email ?? null,
+        profileImage: owner.profileImage ?? null,
+        gender: owner.gender ?? null,
+        city: owner.city ?? null,
+        state: owner.state ?? null,
+        country: owner.country ?? null,
+        status: owner.status ?? null,
+        createdAt: owner.createdAt ?? null
+      };
+      return map;
+    }, {});
+
+    const formattedTurfs = pendingTurfs.map(turf => ({
+      ...turf,
+      owner: ownerMap[turf.owner] || null,
+    }));
+
+    return sendSuccess(res, { pendingTurfs: formattedTurfs });
+  } catch (error) {
+    console.error('Get all pending verification turfs error:', error);
+    return sendError(res, 500, 'Server error');
+  }
+};
+
 
 export const updateTurf = async (req, res) => {
   try {
@@ -178,14 +370,15 @@ export const verifyTurf = async (req, res) => {
   try {
     const { turfId } = req.params;
     const { isVerified, verificationNotes = '' } = req.body;
+    console.log('isverified',req.body)
 
     if (typeof isVerified !== 'boolean') {
-      return sendError(res, 400, 'isVerified must be a boolean value');
+      return sendError(res, 400, 'Invalid verification status.');
     }
 
     const turf = await Turf.findOne({ id: turfId });
     if (!turf) {
-      return sendError(res, 404, 'Turf not found');
+      return sendError(res, 404, 'Turf not found.');
     }
 
     turf.isVerified = isVerified;
@@ -193,20 +386,37 @@ export const verifyTurf = async (req, res) => {
     turf.verifiedBy = isVerified ? req.user.id : null;
     turf.verificationNotes = verificationNotes;
 
+    if (isVerified) {
+      turf.status = 'active';
+      turf.isActive = true;
+    } else {
+      turf.status = 'rejected';
+      turf.isActive = false;
+    }
+
     await turf.save();
 
-    return sendSuccess(res, {
-      id: turf.id,
-      name: turf.name,
-      isVerified: turf.isVerified,
-      verifiedAt: turf.verifiedAt
-    }, `Turf ${isVerified ? 'verified' : 'unverified'} successfully`);
+    return sendSuccess(
+      res,
+      {
+        id: turf.id,
+        name: turf.name,
+        isVerified: turf.isVerified,
+        status: turf.status,
+        isActive: turf.isActive,
+        verifiedAt: turf.verifiedAt
+      },
+      isVerified
+        ? 'Turf approved successfully.'
+        : 'Turf rejected successfully.'
+    );
 
   } catch (error) {
     console.error('Verify turf error:', error);
-    return sendError(res, 500, 'Verification failed');
+    return sendError(res, 500, 'Something went wrong. Please try again.');
   }
 };
+
 
 export const assignStaff = async (req, res) => {
   try {

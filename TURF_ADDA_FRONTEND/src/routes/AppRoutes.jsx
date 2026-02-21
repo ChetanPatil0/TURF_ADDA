@@ -17,16 +17,29 @@ import AddTurf from '../pages/owner/AddTurf';
 import OwnerBookings from '../pages/owner/OwnerBookings';
 import Revenue from '../pages/owner/Revenue';
 
+import AdminDashboard from '../pages/admin/AdminDashboard';
+
 import Profile from '../pages/Profile';
 import { Typography } from '@mui/material';
 import useAuthStore from '../store/authStore';
+import TurfVerificationScreen from '../pages/admin/TurfVerificationScreen';
+import TurfVerifyDetail from '../pages/admin/TurfVerifyDetail';
 
 const AppRoutes = () => {
   const { isAuthenticated, user } = useAuthStore();
 
   const getHomeRedirect = () => {
     if (!isAuthenticated) return '/login';
-    return '/dashboard';
+
+    const role = user?.role?.toLowerCase();
+
+    if (role === 'superadmin' || role === 'admin') {
+      return '/admin';
+    }
+    if (role === 'owner') {
+      return '/owner';
+    }
+    return '/player';
   };
 
   return (
@@ -43,8 +56,10 @@ const AppRoutes = () => {
           <Route
             index
             element={
-              user?.role === 'owner'
+              user?.role?.toLowerCase() === 'owner'
                 ? <OwnerDashboard />
+                : user?.role?.toLowerCase() === 'superadmin' || user?.role?.toLowerCase() === 'admin'
+                ? <AdminDashboard />
                 : <PlayerHome />
             }
           />
@@ -65,6 +80,13 @@ const AppRoutes = () => {
           <Route path="bookings" element={<OwnerBookings />} />
           <Route path="revenue" element={<Revenue />} />
           <Route path="profile" element={<Profile />} />
+        </Route>
+
+        <Route path="/admin" element={<DashboardLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="/admin/turfs/pending"  element={<TurfVerificationScreen />} />
+          <Route path="/admin/turf/:id/verify" element={<TurfVerifyDetail />} />
         </Route>
 
       </Route>

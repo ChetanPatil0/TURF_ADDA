@@ -10,21 +10,30 @@ const formatFileName = (req, file, type) => {
   return `${type}_${userId}_${date}_${random}${ext}`;
 };
 
+const normalizePath = (filePath) => {
+  return '/' + filePath.replace(/\\/g, '/');
+};
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     let folder = 'uploads';
 
-    // User files – completely separate
     if (file.fieldname === 'profileImage') {
       folder = 'uploads/users/profiles';
     }
 
-    // Turf files – completely separate folder structure
-    if (file.fieldname === 'images' || file.fieldname === 'coverImage' || file.fieldname === 'turfImages') {
+    if (
+      file.fieldname === 'images' ||
+      file.fieldname === 'coverImage' ||
+      file.fieldname === 'turfImages'
+    ) {
       folder = 'uploads/turfs/images';
     }
 
-    if (file.fieldname === 'videos' || file.fieldname === 'turfVideos') {
+    if (
+      file.fieldname === 'videos' ||
+      file.fieldname === 'turfVideos'
+    ) {
       folder = 'uploads/turfs/videos';
     }
 
@@ -41,6 +50,7 @@ const imageFilter = (req, file, cb) => {
   const allowed = /jpeg|jpg|png/;
   const extname = allowed.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowed.test(file.mimetype);
+
   if (mimetype && extname) {
     cb(null, true);
   } else {
@@ -52,6 +62,7 @@ const videoFilter = (req, file, cb) => {
   const allowed = /mp4|mov|avi/;
   const extname = allowed.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowed.test(file.mimetype);
+
   if (mimetype && extname) {
     cb(null, true);
   } else {
@@ -63,16 +74,25 @@ export const uploadFile = (fieldName, options = {}) => {
   const defaultImageMaxMB = 5;
   const defaultVideoMaxMB = 100;
 
-  const imageMaxSizeBytes = (options.imageMaxMB || defaultImageMaxMB) * 1024 * 1024;
-  const videoMaxSizeBytes = (options.videoMaxMB || defaultVideoMaxMB) * 1024 * 1024;
+  const imageMaxSizeBytes =
+    (options.imageMaxMB || defaultImageMaxMB) * 1024 * 1024;
+
+  const videoMaxSizeBytes =
+    (options.videoMaxMB || defaultVideoMaxMB) * 1024 * 1024;
 
   return multer({
     storage,
     limits: { fileSize: Math.max(imageMaxSizeBytes, videoMaxSizeBytes) },
     fileFilter: (req, file, cb) => {
-      if (['profileImage', 'images', 'coverImage', 'turfImages'].includes(file.fieldname)) {
+      if (
+        ['profileImage', 'images', 'coverImage', 'turfImages'].includes(
+          file.fieldname
+        )
+      ) {
         imageFilter(req, file, cb);
-      } else if (['videos', 'turfVideos'].includes(file.fieldname)) {
+      } else if (
+        ['videos', 'turfVideos'].includes(file.fieldname)
+      ) {
         videoFilter(req, file, cb);
       } else {
         cb(new Error('Invalid field name'), false);
@@ -85,9 +105,13 @@ export const uploadTurfMedia = multer({
   storage,
   limits: { fileSize: 150 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (['images', 'coverImage', 'turfImages'].includes(file.fieldname)) {
+    if (
+      ['images', 'coverImage', 'turfImages'].includes(file.fieldname)
+    ) {
       imageFilter(req, file, cb);
-    } else if (['videos', 'turfVideos'].includes(file.fieldname)) {
+    } else if (
+      ['videos', 'turfVideos'].includes(file.fieldname)
+    ) {
       videoFilter(req, file, cb);
     } else {
       cb(new Error('Invalid field name'), false);
@@ -103,6 +127,20 @@ export const uploadTurfMedia = multer({
 
 export const processUpload = async (req, res, next) => {
   try {
+    if (req.file?.path) {
+      req.file.path = normalizePath(req.file.path);
+    }
+
+    if (req.files) {
+      Object.values(req.files).forEach((fileArray) => {
+        fileArray.forEach((file) => {
+          if (file?.path) {
+            file.path = normalizePath(file.path);
+          }
+        });
+      });
+    }
+
     next();
   } catch (error) {
     const filesToDelete = [];
@@ -112,26 +150,38 @@ export const processUpload = async (req, res, next) => {
     }
 
     if (req.files) {
-      Object.values(req.files).flat().forEach(file => {
+      Object.values(req.files).flat().forEach((file) => {
         if (file?.path) filesToDelete.push(file.path);
       });
     }
 
     await Promise.all(
-      filesToDelete.map(filePath => fs.unlink(filePath).catch(() => {}))
+      filesToDelete.map((filePath) =>
+        fs.unlink(filePath.replace(/^\//, '')).catch(() => {})
+      )
     );
 
-    if (error.message.includes('Only JPG') || error.message.includes('Only MP4')) {
-      return res.status(400).json({ success: false, message: error.message });
+    if (
+      error.message.includes('Only JPG') ||
+      error.message.includes('Only MP4')
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
     }
 
     if (error.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({
         success: false,
-        message: 'File too large. Images/cover: max 5MB, Videos: max 100MB',
+        message:
+          'File too large. Images/cover: max 5MB, Videos: max 100MB',
       });
     }
 
-    return res.status(500).json({ success: false, message: 'Upload failed' });
+    return res.status(500).json({
+      success: false,
+      message: 'Upload failed',
+    });
   }
 };

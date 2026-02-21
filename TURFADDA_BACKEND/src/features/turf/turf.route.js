@@ -7,7 +7,8 @@ import {
   verifyTurf,
   assignStaff,
   removeStaff,
-  getTurfStaff
+  getTurfStaff,
+  getAllPendingVerificationTurfs
 } from '../turf/turf.controller.js';
 
 import { authCheck, authorizeRoles } from '../../middlewares/auth.js';
@@ -16,7 +17,7 @@ import { blockSlot, generateSlots, getAllSlots, getAvailableSlots, unblockSlot }
 
 const router = express.Router();
 
-router.get('/:identifier', getTurf);
+
 
 router.post(
   '/',
@@ -33,6 +34,11 @@ router.get(
   authorizeRoles('owner', 'admin', 'superadmin'),
   getMyTurfs
 );
+router.get('/pending-verification', getAllPendingVerificationTurfs);
+
+router.get('/:identifier', getTurf);
+
+
 
 router.patch(
   '/:turfId',

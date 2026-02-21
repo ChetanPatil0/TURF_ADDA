@@ -31,7 +31,7 @@ const Loader = ({ size = 'md', color = 'primary', className = '' }) => {
       role="status"
       aria-label="Loading"
     >
-      <span className="sr-only">Loading...</span>
+         <p className="text-sm font-medium text-[#6B7280] animate-pulse">Loading…</p>
     </div>
   );
 };

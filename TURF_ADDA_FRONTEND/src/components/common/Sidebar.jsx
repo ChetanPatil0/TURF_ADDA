@@ -18,6 +18,8 @@ import {
   MdAttachMoney,
 } from 'react-icons/md';
 
+import { RiAdminLine, RiGroupLine, RiShieldCheckLine } from 'react-icons/ri'; // ← add for admin
+
 export default function Sidebar({
   mobileOpen,
   onClose,
@@ -28,7 +30,7 @@ export default function Sidebar({
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
-  const role = user?.role || 'player';
+  const role = (user?.role || 'player').toLowerCase();
 
   const playerMenu = [
     { label: 'Home', icon: <FiHome />, path: '/dashboard' },
@@ -41,13 +43,28 @@ export default function Sidebar({
   const ownerMenu = [
     { label: 'Dashboard', icon: <FiHome />, path: '/dashboard' },
     { label: 'My Turfs', icon: <MdOutlineSportsSoccer />, path: '/owner/turfs' },
-    { label: 'Add Turf', icon: <MdAddCircleOutline />, path: '/owner/turfs/add' },
+    { label: 'Add Turf', icon: <MdAddCircleOutline />, path: '/owner/add-turf' },
     { label: 'Bookings', icon: <FiCalendar />, path: '/owner/bookings' },
     { label: 'Revenue', icon: <MdAttachMoney />, path: '/owner/revenue' },
     { label: 'Profile', icon: <FiUser />, path: '/owner/profile' },
   ];
 
-  const menuItems = role === 'owner' ? ownerMenu : playerMenu;
+  const adminMenu = [
+    { label: 'Dashboard', icon: <FiHome />, path: '/admin' },
+    { label: 'Users', icon: <RiGroupLine />, path: '/admin/users' },
+    { label: 'Pending Verifications', icon: <RiShieldCheckLine />, path: '/admin/turfs/pending' },
+    { label: 'Reports', icon: <RiAdminLine />, path: '/admin/reports' },
+    { label: 'Profile', icon: <FiUser />, path: '/admin/profile' },
+  ];
+
+  let menuItems;
+  if (role === 'admin' || role === 'superadmin') {
+    menuItems = adminMenu;
+  } else if (role === 'owner') {
+    menuItems = ownerMenu;
+  } else {
+    menuItems = playerMenu;
+  }
 
   const isActive = (path) => location.pathname.startsWith(path);
 

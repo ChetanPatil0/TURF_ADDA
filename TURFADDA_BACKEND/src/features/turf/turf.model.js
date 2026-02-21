@@ -134,20 +134,20 @@ const turfSchema = new mongoose.Schema(
     amenities: [
       {
         type: String,
-        enum: [
-          'parking',
-          'changing_room',
-          'shower',
-          'restroom',
-          'lighting',
-          'drinking_water',
-          'seating',
-          'first_aid',
-          'cafeteria',
-          'wifi',
-          'power_backup',
-          'scoreboard',
-        ],
+        enum:[
+  'parking',
+  'changing_room',
+  'shower',
+  'restroom',
+  'lighting',
+  'drinking_water',
+  'seating',
+  'first_aid',
+  'cafeteria',
+  'wifi',
+  'power_backup',
+  'scoreboard'
+],
       },
     ],
 
@@ -175,8 +175,8 @@ const turfSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ['active', 'inactive', 'suspended'],
-      default: 'active',
+      enum: ['active', 'inactive', 'suspended','pending','rejected'],
+      default: 'pending',
     },
   },
   {
@@ -191,14 +191,14 @@ turfSchema.index({ 'location.city': 1, 'location.area': 1 });
 
 
 
-turfSchema.pre('save', function (next) {
+turfSchema.pre('save', function () {
   if (this.isModified('name') && !this.slug) {
     this.slug = this.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
   }
-  next();
 });
+
 
 export default mongoose.model('Turf', turfSchema);
