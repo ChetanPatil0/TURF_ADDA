@@ -29,7 +29,11 @@ const createUploadFolders = () => {
 
 createUploadFolders();
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(morgan('dev'));

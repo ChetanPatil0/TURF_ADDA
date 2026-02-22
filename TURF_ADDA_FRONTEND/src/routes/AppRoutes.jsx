@@ -6,7 +6,7 @@ import Signup from '../pages/Signup';
 import OTPVerify from '../pages/OTPVerify';
 import Login from '../pages/Login';
 
-import PlayerHome from '../pages/player/PlayerHome';
+import PlayerDashboard from '../pages/player/PlayerDashboard';
 import FindTurfs from '../pages/player/FindTurfs';
 import PlayerBookings from '../pages/player/Bookings';
 import Favorites from '../pages/player/Favorites';
@@ -24,6 +24,7 @@ import { Typography } from '@mui/material';
 import useAuthStore from '../store/authStore';
 import TurfVerificationScreen from '../pages/admin/TurfVerificationScreen';
 import TurfVerifyDetail from '../pages/admin/TurfVerifyDetail';
+
 
 const AppRoutes = () => {
   const { isAuthenticated, user } = useAuthStore();
@@ -60,13 +61,13 @@ const AppRoutes = () => {
                 ? <OwnerDashboard />
                 : user?.role?.toLowerCase() === 'superadmin' || user?.role?.toLowerCase() === 'admin'
                 ? <AdminDashboard />
-                : <PlayerHome />
+                : <PlayerDashboard />
             }
           />
         </Route>
 
         <Route path="/player" element={<DashboardLayout />}>
-          <Route index element={<PlayerHome />} />
+          <Route index element={<PlayerDashboard />} />
           <Route path="find-turfs" element={<FindTurfs />} />
           <Route path="bookings" element={<PlayerBookings />} />
           <Route path="favorites" element={<Favorites />} />

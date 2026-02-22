@@ -1,7 +1,7 @@
 
 import express from 'express'
 import { authCheck, authorizeRoles } from "../../middlewares/auth.js";
-import {  getAdminDashboardData, getOwnerDashboardData, getStaffDashboardData } from "./dashboard.controller.js";
+import {  getAdminDashboardData, getOwnerDashboardData, getPlayerDashboard, getStaffDashboardData } from "./dashboard.controller.js";
 
 const router = express.Router();
 
@@ -26,5 +26,8 @@ router.get(
   authorizeRoles('superadmin','admin'),
   getAdminDashboardData
 );
+
+
+router.get('/player/dashboard-data', authCheck, authorizeRoles('player'), getPlayerDashboard);
 
 export default router

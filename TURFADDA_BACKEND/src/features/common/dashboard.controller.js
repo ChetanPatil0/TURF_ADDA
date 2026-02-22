@@ -494,3 +494,150 @@ export const getStaffDashboardData = async (req, res) => {
     return sendError(res, 500, 'Failed to load staff dashboard.');
   }
 };
+
+
+
+
+// Helper function to calculate distance in km
+const haversineDistance = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
+
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+export const getPlayerDashboard = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+
+    const { lat, lng } = req.query;
+
+    let searchLat = null;
+    let searchLng = null;
+    let hasValidLocation = false;
+
+    if (lat && lng) {
+      const parsedLat = parseFloat(lat);
+      const parsedLng = parseFloat(lng);
+      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        searchLat = parsedLat;
+        searchLng = parsedLng;
+        hasValidLocation = true;
+      }
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const thirtyDaysLater = new Date(today);
+    thirtyDaysLater.setDate(today.getDate() + 30);
+
+    const upcomingBookings = await Booking.find({
+      user: user._id,
+      date: { $gte: today, $lte: thirtyDaysLater },
+      status: { $in: ['confirmed', 'pending', 'paid'] },
+    })
+      .populate({
+        path: 'turf',
+        select: 'name slug coverImage location.area location.city',
+      })
+      .sort({ date: 1, startTime: 1 })
+      .limit(8)
+      .lean();
+
+    const formattedBookings = upcomingBookings.map((booking) => ({
+      bookingId: booking._id.toString(),
+      turfName: booking.turf?.name || 'Turf',
+      turfId: booking.turf?._id?.toString(),
+      date: booking.date.toISOString().split('T')[0],
+      time: `${booking.startTime} - ${booking.endTime}`,
+      sport: booking.sport || '—',
+      status: booking.status,
+      totalPrice: booking.totalPrice || booking.price,
+      location: {
+        area: booking.turf?.location?.area || '',
+        city: booking.turf?.location?.city || '',
+      },
+    }));
+
+    let nearbyTurfs = [];
+    let locationMessage = hasValidLocation
+      ? 'Near your current location'
+      : 'Location not provided — enable location access to see nearby turfs';
+
+    if (hasValidLocation) {
+      const MAX_DISTANCE_KM = 10;
+
+      let turfs = await Turf.find({
+        isActive: true,
+        isVerified: true,
+        status: 'active',
+      })
+        .select('name slug coverImage location sports pricePerSlot reviewCount averageRating')
+        .lean();
+
+      turfs = turfs
+        .map((t) => {
+          const distance = haversineDistance(
+            searchLat,
+            searchLng,
+            t.location?.latitude,
+            t.location?.longitude
+          );
+          return {
+            ...t,
+            distanceKm: distance === Infinity ? null : Math.round(distance * 10) / 10,
+          };
+        })
+        .filter((t) => t.distanceKm !== null && t.distanceKm <= MAX_DISTANCE_KM)
+        .sort((a, b) => a.distanceKm - b.distanceKm)
+        .slice(0, 12);
+
+      nearbyTurfs = turfs.map((t) => ({
+        id: t._id.toString(),
+        name: t.name,
+        slug: t.slug,
+        coverImage: t.coverImage,
+        distanceKm: t.distanceKm,
+        sports: t.sports || [],
+        pricePerSlot: t.pricePerSlot,
+        reviewCount: t.reviewCount || 0,
+        averageRating: Math.round((t.averageRating || 0) * 10) / 10, // e.g. 4.3
+        location: {
+          area: t.location?.area || '',
+          city: t.location?.city || '',
+        },
+      }));
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        upcomingBookings: formattedBookings,
+        nearbyTurfs,
+        location: {
+          hasValidLocation,
+          message: locationMessage,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Player Dashboard Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load dashboard',
+      error: error.message,
+    });
+  }
+};
