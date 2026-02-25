@@ -543,6 +543,7 @@ export const getPlayerDashboard = async (req, res) => {
     const thirtyDaysLater = new Date(today);
     thirtyDaysLater.setDate(today.getDate() + 30);
 
+    // Fetch upcoming bookings
     const upcomingBookings = await Booking.find({
       user: user._id,
       date: { $gte: today, $lte: thirtyDaysLater },
@@ -550,7 +551,7 @@ export const getPlayerDashboard = async (req, res) => {
     })
       .populate({
         path: 'turf',
-        select: 'name slug coverImage location.area location.city',
+        select: 'id name slug coverImage location.area location.city',
       })
       .sort({ date: 1, startTime: 1 })
       .limit(8)
@@ -559,7 +560,7 @@ export const getPlayerDashboard = async (req, res) => {
     const formattedBookings = upcomingBookings.map((booking) => ({
       bookingId: booking._id.toString(),
       turfName: booking.turf?.name || 'Turf',
-      turfId: booking.turf?._id?.toString(),
+      turfId: booking.turf?.id || null,           // only custom id (uuid), no fallback
       date: booking.date.toISOString().split('T')[0],
       time: `${booking.startTime} - ${booking.endTime}`,
       sport: booking.sport || '—',
@@ -571,6 +572,7 @@ export const getPlayerDashboard = async (req, res) => {
       },
     }));
 
+    // Nearby turfs
     let nearbyTurfs = [];
     let locationMessage = hasValidLocation
       ? 'Near your current location'
@@ -584,7 +586,12 @@ export const getPlayerDashboard = async (req, res) => {
         isVerified: true,
         status: 'active',
       })
-        .select('name slug coverImage location sports pricePerSlot reviewCount averageRating')
+        .select(
+          'id name slug coverImage ' +
+          'location.area location.city ' +
+          'location.latitude location.longitude ' +
+          'sports pricePerSlot reviewCount averageRating'
+        )
         .lean();
 
       turfs = turfs
@@ -597,7 +604,7 @@ export const getPlayerDashboard = async (req, res) => {
           );
           return {
             ...t,
-            distanceKm: distance === Infinity ? null : Math.round(distance * 10) / 10,
+            distanceKm: isNaN(distance) || distance === Infinity ? null : Math.round(distance * 10) / 10,
           };
         })
         .filter((t) => t.distanceKm !== null && t.distanceKm <= MAX_DISTANCE_KM)
@@ -605,7 +612,7 @@ export const getPlayerDashboard = async (req, res) => {
         .slice(0, 12);
 
       nearbyTurfs = turfs.map((t) => ({
-        id: t._id.toString(),
+        id: t.id || null,                         // only custom id (uuid), no fallback
         name: t.name,
         slug: t.slug,
         coverImage: t.coverImage,
@@ -613,7 +620,7 @@ export const getPlayerDashboard = async (req, res) => {
         sports: t.sports || [],
         pricePerSlot: t.pricePerSlot,
         reviewCount: t.reviewCount || 0,
-        averageRating: Math.round((t.averageRating || 0) * 10) / 10, // e.g. 4.3
+        averageRating: Math.round((t.averageRating || 0) * 10) / 10,
         location: {
           area: t.location?.area || '',
           city: t.location?.city || '',

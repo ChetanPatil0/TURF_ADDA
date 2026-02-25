@@ -50,16 +50,15 @@ const StarRating = ({ rating = 0 }) => {
 const NoImagePlaceholder = () => (
   <div style={{
     width: '100%', height: '100%',
-    background: 'linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%)',
     display: 'flex', flexDirection: 'column',
-    alignItems: 'center', justifyContent: 'center', gap: 8,
+    alignItems: 'center', justifyContent: 'center',
+    background: '#F3F4F6',
   }}>
     <div style={{
-      width: 44, height: 44, borderRadius: 12,
-      background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+      width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+     
     }}>
-      <RiImageLine style={{ fontSize: 22, color: '#9CA3AF' }} />
+      <RiImageLine style={{ fontSize: 24, color: '#9CA3AF' }} />
     </div>
     <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600, letterSpacing: '0.04em' }}>No Image</span>
   </div>
@@ -256,7 +255,7 @@ const TurfCard = ({ turf }) => {
             <span style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginLeft: 4 }}>/ slot</span>
           </div>
           <button
-            onClick={e => { e.stopPropagation(); navigate(`/turf/${turf.id}`); }}
+            onClick={e => { e.stopPropagation(); navigate(`/player/turf/${turf.id}`); }}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               background: 'var(--color-primary)', color: '#fff',
@@ -354,6 +353,7 @@ const PlayerDashboard = () => {
         setLoading(true);
         setError(null);
         const response = await getPlayerDashboard(coords?.lat, coords?.lng);
+        console.log('Dashboard response:', response);
         setData(response.data || response);
       } catch (err) {
         setError(err.message || 'Failed to load dashboard');

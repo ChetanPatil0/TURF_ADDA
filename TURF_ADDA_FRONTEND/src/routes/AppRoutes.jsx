@@ -24,6 +24,7 @@ import { Typography } from '@mui/material';
 import useAuthStore from '../store/authStore';
 import TurfVerificationScreen from '../pages/admin/TurfVerificationScreen';
 import TurfVerifyDetail from '../pages/admin/TurfVerifyDetail';
+import TurfDetail from '../pages/common/TurfDetail';
 
 
 const AppRoutes = () => {
@@ -72,6 +73,8 @@ const AppRoutes = () => {
           <Route path="bookings" element={<PlayerBookings />} />
           <Route path="favorites" element={<Favorites />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="turf/:id" element={<TurfDetail />} />           
+  {/* <Route path="turf/:id/book" element={<TurfBooking />} /> */}
         </Route>
 
         <Route path="/owner" element={<DashboardLayout />}>

@@ -17,8 +17,9 @@ import { blockSlot, generateSlots, getAllSlots, getAvailableSlots, unblockSlot }
 
 const router = express.Router();
 
+// ---------------------- TURF ROUTES ----------------------
 
-
+// Create a turf
 router.post(
   '/',
   authCheck,
@@ -28,18 +29,23 @@ router.post(
   createTurf
 );
 
+// Get my turfs
 router.get(
   '/my',
   authCheck,
   authorizeRoles('owner', 'admin', 'superadmin'),
   getMyTurfs
 );
-router.get('/pending-verification', getAllPendingVerificationTurfs);
 
-router.get('/:identifier', getTurf);
+// Get all pending verification turfs
+router.get(
+  '/pending-verification',
+  authCheck,
+  authorizeRoles('admin', 'superadmin'),
+  getAllPendingVerificationTurfs
+);
 
-
-
+// Update a turf
 router.patch(
   '/:turfId',
   authCheck,
@@ -49,26 +55,7 @@ router.patch(
   updateTurf
 );
 
-router.post(
-  '/:turfId/staff',
-  authCheck,
-  authorizeRoles('owner', 'admin', 'superadmin'),
-  assignStaff
-);
-
-router.delete(
-  '/:turfId/staff/:staffId',
-  authCheck,
-  authorizeRoles('owner', 'admin', 'superadmin'),
-  removeStaff
-);
-
-router.get(
-  '/:turfId/staff',
-  authCheck,
-  getTurfStaff
-);
-
+// Verify a turf
 router.patch(
   '/:turfId/verify',
   authCheck,
@@ -76,6 +63,30 @@ router.patch(
   verifyTurf
 );
 
+// Assign staff to a turf
+router.post(
+  '/:turfId/staff',
+  authCheck,
+  authorizeRoles('owner', 'admin', 'superadmin'),
+  assignStaff
+);
+
+// Remove staff from a turf
+router.delete(
+  '/:turfId/staff/:staffId',
+  authCheck,
+  authorizeRoles('owner', 'admin', 'superadmin'),
+  removeStaff
+);
+
+// Get all staff of a turf
+router.get(
+  '/:turfId/staff',
+  authCheck,
+  getTurfStaff
+);
+
+// Generate slots for a turf
 router.post(
   '/:turfId/generate-slots',
   authCheck,
@@ -83,11 +94,13 @@ router.post(
   generateSlots
 );
 
+// Get available slots for a turf
 router.get(
   '/:turfId/available-slots',
   getAvailableSlots
 );
 
+// Get all slots for a turf
 router.get(
   '/:turfId/slots',
   authCheck,
@@ -95,6 +108,7 @@ router.get(
   getAllSlots
 );
 
+// Block a slot
 router.patch(
   '/slots/:slotId/block',
   authCheck,
@@ -102,11 +116,15 @@ router.patch(
   blockSlot
 );
 
+// Unblock a slot
 router.patch(
   '/slots/:slotId/unblock',
   authCheck,
   authorizeRoles('owner', 'staff', 'admin', 'superadmin'),
   unblockSlot
 );
+
+// Get a single turf by identifier (must come last to avoid catching other routes)
+router.get('/:identifier', getTurf);
 
 export default router;
